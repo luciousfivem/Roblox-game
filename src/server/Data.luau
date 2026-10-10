@@ -14,7 +14,18 @@ type Profile = GameData.Profile
 
 local Data = {}
 
-local store = DataStoreService:GetDataStore(Config.DataStoreName)
+-- GetDataStore can throw in an unpublished place; the game must still run (just without saving).
+local store: DataStore? = nil
+do
+	local ok, result = pcall(function()
+		return DataStoreService:GetDataStore(Config.DataStoreName)
+	end)
+	if ok then
+		store = result
+	else
+		warn(`[Data] DataStore unavailable, progress will not be saved: {result}`)
+	end
+end
 local profiles: { [Player]: Profile } = {}
 local saveAllowed: { [Player]: boolean } = {} -- false when the load failed: never overwrite real data with defaults
 
@@ -74,10 +85,14 @@ local function reconcile(saved: any): Profile
 end
 
 local function loadProfile(player: Player): (boolean, Profile)
+	local activeStore = store
+	if not activeStore then
+		return false, GameData.newProfile()
+	end
 	local attempts = if RunService:IsStudio() then 1 else 3
 	for attempt = 1, attempts do
 		local ok, result = pcall(function()
-			return store:GetAsync(keyFor(player))
+			return activeStore:GetAsync(keyFor(player))
 		end)
 		if ok then
 			return true, reconcile(result)
@@ -92,11 +107,12 @@ end
 
 function Data.Save(player: Player)
 	local profile = profiles[player]
-	if not profile or not saveAllowed[player] then
+	local activeStore = store
+	if not profile or not activeStore or not saveAllowed[player] then
 		return
 	end
 	local ok, err = pcall(function()
-		store:UpdateAsync(keyFor(player), function()
+		activeStore:UpdateAsync(keyFor(player), function()
 			return profile
 		end)
 	end)
