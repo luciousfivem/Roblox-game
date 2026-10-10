@@ -953,7 +953,7 @@ function Panels.Open(name: string, station: BasePart?)
 	openPanel = name
 	openStation = station
 	windows[name].Frame.Visible = true
-	Panels.Refresh()
+	Panels.Refresh(true) -- force: the admin window skips ordinary refreshes
 end
 
 function Panels.Toggle(name: string)
