@@ -4,7 +4,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local EVENTS = { "State", "Toast", "Mine", "Sell", "Forge", "Equip", "Buy" }
+local EVENTS =
+	{ "State", "Toast", "Mine", "Sell", "Forge", "Equip", "Buy", "Hatch", "PetEquip", "Rebirth", "Teleport", "Daily" }
 local FUNCTIONS = { "GetState" }
 
 local Remotes = {}

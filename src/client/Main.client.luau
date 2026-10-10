@@ -1,5 +1,6 @@
 --!strict
--- Entry point for all client-side UI and input.
+-- Entry point for all client-side UI, effects and input.
+local Effects = require(script.Parent.Effects)
 local Hud = require(script.Parent.Hud)
 local Mining = require(script.Parent.Mining)
 local Panels = require(script.Parent.Panels)
@@ -8,6 +9,7 @@ local Toasts = require(script.Parent.Toasts)
 
 State.Init()
 Toasts.Init()
-Hud.Init()
 Panels.Init()
+Hud.Init()
+Effects.Init()
 Mining.Init()

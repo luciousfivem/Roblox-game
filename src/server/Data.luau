@@ -74,6 +74,35 @@ local function reconcile(saved: any): Profile
 			end
 		end
 	end
+	if type(saved.Rebirths) == "number" then
+		profile.Rebirths = math.clamp(math.floor(saved.Rebirths), 0, GameData.MaxRebirths)
+	end
+	if type(saved.LastDaily) == "number" then
+		profile.LastDaily = math.max(0, math.floor(saved.LastDaily))
+	end
+	if type(saved.Streak) == "number" then
+		profile.Streak = math.max(0, math.floor(saved.Streak))
+	end
+	if type(saved.Pets) == "table" then
+		for id, count in saved.Pets do
+			if GameData.PetsById[id] and type(count) == "number" and count > 0 then
+				profile.Pets[id] = math.floor(count)
+			end
+		end
+	end
+	if type(saved.EquippedPets) == "table" then
+		local used: { [string]: number } = {}
+		for _, id in saved.EquippedPets do
+			if
+				type(id) == "string"
+				and (profile.Pets[id] or 0) > (used[id] or 0)
+				and #profile.EquippedPets < GameData.maxPets(profile)
+			then
+				used[id] = (used[id] or 0) + 1
+				table.insert(profile.EquippedPets, id)
+			end
+		end
+	end
 	for _, field in { "Weapon", "Armor" } do
 		local id = saved[field]
 		local recipe = if type(id) == "string" then GameData.RecipesById[id] else nil
@@ -127,6 +156,10 @@ end
 
 -- The table sent to the client: raw profile plus every derived stat the UI shows.
 function Data.Snapshot(profile: Profile): { [string]: any }
+	local now = os.time()
+	local today = GameData.dailyDay(now)
+	local dailyReady = profile.LastDaily < today
+	local nextStreak = if profile.LastDaily == today - 1 then profile.Streak + 1 else 1
 	return {
 		Coins = profile.Coins,
 		XP = profile.XP,
@@ -145,6 +178,19 @@ function Data.Snapshot(profile: Profile): { [string]: any }
 		Luck = GameData.luck(profile),
 		SellValue = GameData.sellValue(profile),
 		SellMultiplier = GameData.sellMultiplier(profile),
+		XPMultiplier = GameData.xpMultiplier(profile),
+		Rebirths = profile.Rebirths,
+		RebirthLevel = GameData.rebirthRequirement(profile),
+		CanRebirth = GameData.canRebirth(profile),
+		Pets = profile.Pets,
+		EquippedPets = profile.EquippedPets,
+		MaxPets = GameData.maxPets(profile),
+		DailyReady = dailyReady,
+		DailyStreak = profile.Streak,
+		DailyNextStreak = nextStreak,
+		DailyReward = GameData.dailyReward(nextStreak, profile.Level),
+		DailyBonusPet = GameData.dailyBonusPet(nextStreak),
+		DailyResetIn = (today + 1) * 86400 - now,
 	}
 end
 
@@ -176,7 +222,7 @@ function Data.AddXP(player: Player, amount: number)
 		return
 	end
 
-	profile.XP += amount
+	profile.XP += math.floor(amount * GameData.xpMultiplier(profile))
 	while profile.Level < GameData.MaxLevel and profile.XP >= GameData.xpForLevel(profile.Level) do
 		profile.XP -= GameData.xpForLevel(profile.Level)
 		profile.Level += 1

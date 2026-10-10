@@ -5,6 +5,10 @@
     "ReplicatedStorage": {
       "Shared": {
         "$path": "src/shared"
+      },
+      "Models": {
+        "$path": "src/models",
+        "$ignoreUnknownInstances": true
       }
     },
     "ServerScriptService": {

@@ -1,5 +1,5 @@
 --!strict
--- Builds the hub, the shop/forge/sell stations, the zone platforms, portals, and ore nodes.
+-- Builds the hub, the stations, the zone platforms, portals, and ore nodes.
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -7,6 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage.Shared.Config)
 local GameData = require(ReplicatedStorage.Shared.GameData)
 local Data = require(script.Parent.Data)
+local NodeModels = require(script.Parent.NodeModels)
 local Notify = require(script.Parent.Notify)
 
 type Zone = GameData.Zone
@@ -72,6 +73,31 @@ local function teleport(player: Player, position: Vector3)
 	end
 end
 
+-- Moves a player to a zone (nil = hub) if their level allows it.
+function World.TryEnter(player: Player, zone: Zone?): boolean
+	local profile = Data.Get(player)
+	if not profile then
+		return false
+	end
+	if zone and profile.Level < zone.RequiredLevel then
+		Notify.toast(player, `{zone.Name} requires level {zone.RequiredLevel}`, Color3.fromRGB(255, 110, 110))
+		return false
+	end
+	teleport(player, if zone then zoneSpawn(zone) else World.HubSpawn)
+	return true
+end
+
+-- True when the player's character is close enough to use the given station.
+function World.NearStation(player: Player, panel: string): boolean
+	local station: BasePart? = World.Stations[panel]
+	local character = player.Character
+	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+	if not station or not root or not root:IsA("BasePart") then
+		return false
+	end
+	return (root.Position - station.Position).Magnitude <= Config.StationRange
+end
+
 -- Hub ---------------------------------------------------------------------------------------------------
 
 local function buildStation(name: string, panel: string, position: Vector3, color: Color3)
@@ -88,6 +114,7 @@ local function buildStation(name: string, panel: string, position: Vector3, colo
 		Size = UDim2.fromOffset(240, 60),
 		StudsOffset = Vector3.new(0, 6, 0),
 		AlwaysOnTop = true,
+		MaxDistance = 120,
 	}, part)
 	label(gui, name, Color3.new(1, 1, 1), UDim2.fromScale(1, 1))
 
@@ -125,9 +152,11 @@ local function buildHub()
 		Color = Color3.fromRGB(255, 190, 60),
 	}, workspace)
 
-	buildStation("Sell Shop", "Sell", Vector3.new(-40, 0, 45), Color3.fromRGB(70, 160, 80))
+	buildStation("Sell Shop", "Sell", Vector3.new(-56, 0, 45), Color3.fromRGB(70, 160, 80))
+	buildStation("Upgrade Shop", "Upgrade", Vector3.new(-28, 0, 45), Color3.fromRGB(70, 110, 190))
 	buildStation("The Forge", "Forge", Vector3.new(0, 0, 45), Color3.fromRGB(190, 85, 40))
-	buildStation("Upgrade Shop", "Upgrade", Vector3.new(40, 0, 45), Color3.fromRGB(70, 110, 190))
+	buildStation("Pet Hatchery", "Pets", Vector3.new(28, 0, 45), Color3.fromRGB(215, 120, 190))
+	buildStation("Rebirth Altar", "Rebirth", Vector3.new(56, 0, 45), Color3.fromRGB(150, 70, 210))
 
 	make("Part", {
 		Name = "ForgeGlow",
@@ -146,7 +175,7 @@ end
 local function buildPortalGui(portal: Part, title: string, subtitle: string, color: Color3): TextLabel
 	-- Sized in studs (scale) so neighbouring portals' labels never overlap.
 	local gui = make("BillboardGui", {
-		Size = UDim2.fromScale(18, 7),
+		Size = UDim2.fromScale(16, 6.5),
 		StudsOffset = Vector3.new(0, 11, 0),
 		AlwaysOnTop = true,
 		MaxDistance = 150,
@@ -157,9 +186,27 @@ local function buildPortalGui(portal: Part, title: string, subtitle: string, col
 	return label(gui, "", Color3.new(1, 1, 1), UDim2.new(1, 0, 0.3, 0), 3)
 end
 
+-- Fires `onEnter` for a player touching `part`, at most once every 2 seconds each.
+local function onTouchedByPlayer(part: BasePart, onEnter: (Player) -> ())
+	local lastUse: { [Player]: number } = {}
+	part.Touched:Connect(function(hit)
+		local player = Players:GetPlayerFromCharacter(hit.Parent)
+		if not player then
+			return
+		end
+		local now = os.clock()
+		if now - (lastUse[player] or 0) < 2 then
+			return
+		end
+		lastUse[player] = now
+		onEnter(player)
+	end)
+end
+
 local function buildPortalTo(zone: Zone)
 	local count = #GameData.Zones
-	local x = (zone.Id - (count + 1) / 2) * 20
+	local spacing = math.min(20, (Config.HubSize - 26) / (count - 1))
+	local x = (zone.Id - (count + 1) / 2) * spacing
 	local portal = make("Part", {
 		Name = `Portal_{zone.Id}`,
 		Anchored = true,
@@ -178,27 +225,8 @@ local function buildPortalTo(zone: Zone)
 	status.Name = "Status"
 	status.Text = `Level {zone.RequiredLevel}+`
 
-	local lastUse: { [Player]: number } = {}
-	portal.Touched:Connect(function(hit)
-		local player = Players:GetPlayerFromCharacter(hit.Parent)
-		if not player then
-			return
-		end
-		local now = os.clock()
-		if now - (lastUse[player] or 0) < 2 then
-			return
-		end
-		lastUse[player] = now
-
-		local profile = Data.Get(player)
-		if not profile then
-			return
-		end
-		if profile.Level < zone.RequiredLevel then
-			Notify.toast(player, `{zone.Name} requires level {zone.RequiredLevel}`, Color3.fromRGB(255, 110, 110))
-			return
-		end
-		teleport(player, zoneSpawn(zone))
+	onTouchedByPlayer(portal, function(player)
+		World.TryEnter(player, zone)
 	end)
 end
 
@@ -222,18 +250,8 @@ local function buildReturnPortal(zone: Zone)
 	}, portal)
 	label(gui, "Return to Hub", Color3.new(1, 1, 1), UDim2.fromScale(1, 1))
 
-	local lastUse: { [Player]: number } = {}
-	portal.Touched:Connect(function(hit)
-		local player = Players:GetPlayerFromCharacter(hit.Parent)
-		if not player then
-			return
-		end
-		local now = os.clock()
-		if now - (lastUse[player] or 0) < 2 then
-			return
-		end
-		lastUse[player] = now
-		teleport(player, World.HubSpawn)
+	onTouchedByPlayer(portal, function(player)
+		World.TryEnter(player, nil)
 	end)
 end
 
@@ -267,9 +285,11 @@ end
 function World.SpawnNode(zone: Zone)
 	local center = zoneCenter(zone)
 	local ore = pickOre(zone)
+	local boss = math.random() < Config.BossChance
 
 	local tier = table.find(GameData.OreOrder, ore) or 1
-	local size = 3.2 + tier * 0.45
+	local size = (3.2 + tier * 0.4) * (if boss then 1.7 else 1)
+	local health = ore.Health * (if boss then Config.BossHealthMult else 1)
 
 	-- Find a spot that isn't on top of another node.
 	local position = center
@@ -294,20 +314,22 @@ function World.SpawnNode(zone: Zone)
 		Size = Vector3.new(size, size * 0.9, size),
 		CFrame = CFrame.new(position + Vector3.new(0, size * 0.45, 0))
 			* CFrame.Angles(0, math.rad(math.random(0, 359)), 0),
-		Material = ore.Material,
+		Material = if boss then Enum.Material.Neon else ore.Material,
 		Color = ore.Color,
 	}, nil)
 	node:SetAttribute("OreId", ore.Id)
 	node:SetAttribute("ZoneId", zone.Id)
-	node:SetAttribute("Health", ore.Health)
-	node:SetAttribute("MaxHealth", ore.Health)
+	node:SetAttribute("Health", health)
+	node:SetAttribute("MaxHealth", health)
+	node:SetAttribute("Boss", boss)
 
 	local gui = make("BillboardGui", {
-		Size = UDim2.fromOffset(130, 38),
+		Size = UDim2.fromOffset(150, 40),
 		StudsOffset = Vector3.new(0, size * 0.45 + 2.5, 0),
 		MaxDistance = 70,
 	}, node)
-	label(gui, ore.Name, ore.Color, UDim2.new(1, 0, 0.55, 0))
+	local title = if boss then `★ Rich {ore.Name} ★` else ore.Name
+	label(gui, title, if boss then Color3.fromRGB(255, 225, 80) else ore.Color, UDim2.new(1, 0, 0.55, 0))
 	local back = make("Frame", {
 		BackgroundColor3 = Color3.fromRGB(25, 25, 25),
 		BorderSizePixel = 0,
@@ -316,10 +338,25 @@ function World.SpawnNode(zone: Zone)
 	}, gui)
 	make("Frame", {
 		Name = "Fill",
-		BackgroundColor3 = Color3.fromRGB(90, 220, 90),
+		BackgroundColor3 = if boss then Color3.fromRGB(255, 200, 40) else Color3.fromRGB(90, 220, 90),
 		BorderSizePixel = 0,
 		Size = UDim2.fromScale(1, 1),
 	}, back)
+
+	NodeModels.Decorate(node, ore, size, boss)
+
+	if boss then
+		make("ParticleEmitter", {
+			Texture = "rbxasset://textures/particles/sparkles_main.dds",
+			Color = ColorSequence.new(Color3.fromRGB(255, 235, 120)),
+			Rate = 10,
+			Lifetime = NumberRange.new(1, 2),
+			Speed = NumberRange.new(2, 5),
+			SpreadAngle = Vector2.new(180, 180),
+			Size = NumberSequence.new(0.8, 0),
+			LightEmission = 1,
+		}, node)
+	end
 
 	node.Parent = World.NodesFolder
 end

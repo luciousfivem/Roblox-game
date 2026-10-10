@@ -3,7 +3,6 @@
 -- Every request is validated against the player's real profile and distance to the right station.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Config = require(ReplicatedStorage.Shared.Config)
 local GameData = require(ReplicatedStorage.Shared.GameData)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Data = require(script.Parent.Data)
@@ -17,19 +16,9 @@ local GOLD = Color3.fromRGB(255, 220, 60)
 local RED = Color3.fromRGB(255, 110, 110)
 local GREEN = Color3.fromRGB(120, 235, 120)
 
-local function nearStation(player: Player, panel: string): boolean
-	local station: BasePart? = World.Stations[panel]
-	local character = player.Character
-	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
-	if not station or not root or not root:IsA("BasePart") then
-		return false
-	end
-	return (root.Position - station.Position).Magnitude <= Config.StationRange
-end
-
 local function onSell(player: Player)
 	local profile = Data.Get(player)
-	if not profile or not nearStation(player, "Sell") then
+	if not profile or not World.NearStation(player, "Sell") then
 		return
 	end
 	local value = GameData.sellValue(profile)
@@ -46,7 +35,7 @@ end
 local function onForge(player: Player, recipeId: unknown)
 	local recipe = if type(recipeId) == "string" then GameData.RecipesById[recipeId] else nil
 	local profile = Data.Get(player)
-	if not recipe or not profile or not nearStation(player, "Forge") then
+	if not recipe or not profile or not World.NearStation(player, "Forge") then
 		return
 	end
 	if profile.Owned[recipe.Id] then
@@ -102,7 +91,7 @@ end
 local function onBuy(player: Player, upgradeId: unknown)
 	local upgrade = if type(upgradeId) == "string" then GameData.UpgradesById[upgradeId] else nil
 	local profile = Data.Get(player)
-	if not upgrade or not profile or not nearStation(player, "Upgrade") then
+	if not upgrade or not profile or not World.NearStation(player, "Upgrade") then
 		return
 	end
 	local level = profile.Upgrades[upgrade.Id] or 0

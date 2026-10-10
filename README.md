@@ -23,8 +23,23 @@ forge weapons and armor, and level up to unlock harder, richer zones.
 | Magma Fields | Extreme | 24 | 8 dmg/s | Crystal, Obsidian |
 | Frozen Abyss | Insane | 34 | 15 dmg/s | Obsidian, Mythril |
 | Void Core | Nightmare | 45 | 25 dmg/s | Mythril, Voidstone |
+| Sky Citadel | Cataclysm | 52 | 45 dmg/s | Voidstone, Starmetal |
+| Eclipse Rift | Impossible | 60 | 70 dmg/s | Starmetal, Eclipsium |
 
 Hazard damage is reduced by your armor's resistance, so deep zones need forged armor.
+
+## Systems
+
+- **Boss ores** – about 4% of nodes spawn as a golden *Rich* node: 6x health, 5x ore, 4x XP.
+- **Pets** – hatch eggs at the Pet Hatchery (Dirt / Crystal / Void). Equipped pets follow you and mine
+  nearby ore automatically. 3 slots, +1 per rebirth (up to 6).
+- **Rebirth** – at the Rebirth Altar, reset level/coins/upgrades for permanent coin (+25%) and XP (+20%)
+  bonuses per rebirth. Gear and pets are kept.
+- **Daily reward** – claim from the HUD; streaks grow the reward and every 7th day gives a free pet.
+- **World map** – press **M** (or the Map button) to teleport to any unlocked zone or the hub.
+- **Models & animation** – ores, weapons, armor and pets are built from parts in code. Ores animate
+  (spin/bob/pulse/orbit), shake and burst into chunks when hit; weapons have swing trails. Drop your own
+  meshes into `src/models/` (see `src/models/README.txt`) to replace any of them.
 
 ## Setup
 
@@ -39,9 +54,12 @@ Hazard damage is reduced by your armor's resistance, so deep zones need forged a
 src/shared/GameData.luau   ores, zones, recipes, upgrades + all formulas (edit this to rebalance)
 src/shared/Config.luau     world layout and timing constants
 src/shared/Remotes.luau    RemoteEvent / RemoteFunction registry
-src/server/                Data (save/load, XP), World (hub, zones, nodes), Mining, Economy,
-                           Gear, Hazards, Main
-src/client/                State, Hud, Panels (sell/forge/upgrade UI), Mining (input), Toasts, Main
+src/server/                Data (save/load, XP), World (hub, zones, nodes), NodeModels (ore looks), Mining,
+                           Economy, Gear + GearModels (weapons/armor), Pets, Progression (rebirth/daily/teleport),
+                           Hazards, Main
+src/client/                State, Hud, Panels (all windows), Mining (input), Effects (ore animation, hit/break
+                           feedback), Sounds, Toasts, Main
+src/models/                optional custom meshes that override the procedural models
 ```
 
 The server is authoritative: mining range, swing rate, backpack space, recipe costs, upgrade costs

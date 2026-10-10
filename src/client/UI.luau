@@ -1,5 +1,7 @@
 --!strict
 -- Tiny helpers so the UI code stays readable.
+local Sounds = require(script.Parent.Sounds)
+
 local UI = {}
 
 UI.Colors = {
@@ -57,7 +59,10 @@ function UI.button(parent: Instance, text: string, color: Color3, enabled: boole
 	}, parent)
 	UI.corner(button, 8)
 	if enabled then
-		button.Activated:Connect(onClick)
+		button.Activated:Connect(function()
+			Sounds.play("Click", 0.4)
+			onClick()
+		end)
 	end
 	return button
 end

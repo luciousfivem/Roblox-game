@@ -1,5 +1,6 @@
 --!strict
 -- Hold the mouse button (or a finger) on an ore node to mine it.
+local Debris = game:GetService("Debris")
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -43,11 +44,28 @@ function Mining.Init()
 		end
 		local ray = camera:ViewportPointToRay(position.X, position.Y)
 		local result = workspace:Raycast(ray.Origin, ray.Direction * 500, params)
-		local hit = result and result.Instance
+		-- The ray may land on a decoration part; walk up to the node that sits in the folder.
+		local hit: Instance? = result and result.Instance
+		while hit and hit.Parent ~= nodes do
+			hit = hit.Parent
+		end
 		if hit and hit:IsA("BasePart") then
 			return hit
 		end
 		return nil
+	end
+
+	-- Plays Roblox's default tool slash on the equipped forged weapon.
+	local function swing()
+		local character = player.Character
+		local tool = if character then character:FindFirstChildOfClass("Tool") else nil
+		if tool and tool:GetAttribute("Forged") and tool:FindFirstChild("Handle") then
+			local animation = Instance.new("StringValue")
+			animation.Name = "toolanim"
+			animation.Value = "Slash"
+			animation.Parent = tool
+			Debris:AddItem(animation, 1)
+		end
 	end
 
 	local function inRange(node: BasePart): boolean
@@ -94,6 +112,7 @@ function Mining.Init()
 			local now = os.clock()
 			if now - lastSwing >= cooldown then
 				lastSwing = now
+				swing()
 				mineRemote:FireServer(target)
 			end
 		end

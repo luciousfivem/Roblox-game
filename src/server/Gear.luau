@@ -1,33 +1,13 @@
 --!strict
 -- Applies a player's equipped gear and upgrades to their character:
--- walk speed, a visual weapon tool, and armor colouring.
+-- walk speed, a forged weapon tool, and armor pieces.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameData = require(ReplicatedStorage.Shared.GameData)
 local Data = require(script.Parent.Data)
+local GearModels = require(script.Parent.GearModels)
 
 local Gear = {}
-
-local function makeWeaponTool(recipe: GameData.Recipe): Tool
-	local tool = Instance.new("Tool")
-	tool.Name = recipe.Name
-	tool.ToolTip = `+{recipe.Stat}% mining damage`
-	tool.CanBeDropped = false
-	tool.GripPos = Vector3.new(0, 0, -1.5)
-	tool.GripForward = Vector3.new(-1, 0, 0)
-	tool.GripRight = Vector3.new(0, 1, 0)
-	tool.GripUp = Vector3.new(0, 0, 1)
-	tool:SetAttribute("Forged", true)
-
-	local handle = Instance.new("Part")
-	handle.Name = "Handle"
-	handle.Size = Vector3.new(1, 0.8, 4)
-	handle.Color = recipe.Color
-	handle.Material = if recipe.Stat >= 300 then Enum.Material.Neon else Enum.Material.Metal
-	handle.CanCollide = false
-	handle.Parent = tool
-	return tool
-end
 
 local function clearForgedTools(player: Player)
 	local containers: { Instance } = {}
@@ -64,16 +44,14 @@ function Gear.apply(player: Player)
 	local weapon = GameData.RecipesById[profile.Weapon]
 	local backpack = player:FindFirstChildOfClass("Backpack")
 	if weapon and backpack then
-		makeWeaponTool(weapon).Parent = backpack
+		local tool = GearModels.Weapon(weapon)
+		tool.Parent = backpack
+		if humanoid and humanoid.Health > 0 then
+			humanoid:EquipTool(tool) -- hold it right away
+		end
 	end
 
-	local armor = GameData.RecipesById[profile.Armor]
-	local bodyColors = character:FindFirstChildOfClass("BodyColors")
-	if armor and bodyColors then
-		bodyColors.TorsoColor3 = armor.Color
-		bodyColors.LeftArmColor3 = armor.Color
-		bodyColors.RightArmColor3 = armor.Color
-	end
+	GearModels.ApplyArmor(character, GameData.RecipesById[profile.Armor])
 end
 
 return Gear

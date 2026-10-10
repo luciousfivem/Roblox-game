@@ -1,5 +1,6 @@
 --!strict
--- Handles swing requests from clients: validates them, damages nodes, and pays out ore + XP.
+-- Mining: validates player swings, and applies damage / payouts (shared with pets).
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
@@ -13,6 +14,40 @@ local Mining = {}
 
 local lastSwing: { [Player]: number } = {}
 local lastFullWarning: { [Player]: number } = {}
+
+-- Damages a node on behalf of `player`. When it breaks, pays out ore + XP and queues a respawn.
+-- The caller must already have checked that the backpack has room. Returns true if it broke.
+function Mining.HitNode(player: Player, profile: GameData.Profile, node: BasePart, damage: number): boolean
+	if node.Parent ~= World.NodesFolder then
+		return false -- already broken by someone else this frame
+	end
+
+	local health = (node:GetAttribute("Health") :: number) - damage
+	node:SetAttribute("Health", health)
+	World.UpdateBar(node)
+	if health > 0 then
+		return false
+	end
+
+	local ore = GameData.Ores[node:GetAttribute("OreId") :: string]
+	local zone = GameData.Zones[node:GetAttribute("ZoneId") :: number]
+	local boss = node:GetAttribute("Boss") == true
+	node:Destroy()
+
+	local base = if boss then Config.BossYield else 1
+	local yield = if math.random() < GameData.luck(profile) then base * 2 else base
+	yield = math.min(yield, GameData.capacity(profile) - GameData.usedCapacity(profile))
+	profile.Ores[ore.Id] = (profile.Ores[ore.Id] or 0) + yield
+
+	Data.AddXP(player, ore.XP * (if boss then Config.BossXPMult else 1))
+	Notify.toast(player, `+{yield} {ore.Name}`, ore.Color)
+	Data.Push(player)
+
+	task.delay(Config.NodeRespawnTime, function()
+		World.SpawnNode(zone)
+	end)
+	return true
+end
 
 local function onMine(player: Player, node: unknown)
 	if typeof(node) ~= "Instance" or not node:IsA("BasePart") or node.Parent ~= World.NodesFolder then
@@ -45,34 +80,12 @@ local function onMine(player: Player, node: unknown)
 	end
 	lastSwing[player] = now
 
-	local health = (node:GetAttribute("Health") :: number) - GameData.damage(profile)
-	node:SetAttribute("Health", health)
-	World.UpdateBar(node)
-	if health > 0 then
-		return
-	end
-
-	-- Node broken: pay out.
-	local ore = GameData.Ores[node:GetAttribute("OreId") :: string]
-	local zone = GameData.Zones[node:GetAttribute("ZoneId") :: number]
-	node:Destroy()
-
-	local yield = if math.random() < GameData.luck(profile) then 2 else 1
-	yield = math.min(yield, GameData.capacity(profile) - GameData.usedCapacity(profile))
-	profile.Ores[ore.Id] = (profile.Ores[ore.Id] or 0) + yield
-
-	Data.AddXP(player, ore.XP)
-	Notify.toast(player, `+{yield} {ore.Name}`, ore.Color)
-	Data.Push(player)
-
-	task.delay(Config.NodeRespawnTime, function()
-		World.SpawnNode(zone)
-	end)
+	Mining.HitNode(player, profile, node, GameData.damage(profile))
 end
 
 function Mining.Init()
 	Remotes.Event("Mine").OnServerEvent:Connect(onMine)
-	game:GetService("Players").PlayerRemoving:Connect(function(player)
+	Players.PlayerRemoving:Connect(function(player)
 		lastSwing[player] = nil
 		lastFullWarning[player] = nil
 	end)

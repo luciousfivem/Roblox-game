@@ -4,7 +4,11 @@ local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local TweenService = game:GetService("TweenService")
+
 local GameData = require(ReplicatedStorage.Shared.GameData)
+local Panels = require(script.Parent.Panels)
+local Sounds = require(script.Parent.Sounds)
 local State = require(script.Parent.State)
 local UI = require(script.Parent.UI)
 
@@ -111,6 +115,79 @@ function Hud.Init()
 		Text = "Hold click on ore to mine",
 	})
 
+	-- Buttons for the map and the daily reward.
+	local mapButton = UI.button(gui, "Map [M]", UI.Colors.Button, true, function()
+		Panels.Toggle("Map")
+	end)
+	mapButton.Position = UDim2.fromOffset(12, 248)
+	mapButton.Size = UDim2.fromOffset(104, 34)
+	local dailyButton = UI.button(gui, "Daily", UI.Colors.Button, true, function()
+		Panels.Toggle("Daily")
+	end)
+	dailyButton.Position = UDim2.fromOffset(128, 248)
+	dailyButton.Size = UDim2.fromOffset(104, 34)
+
+	-- Red flash when the character takes damage (hazard zones).
+	local vignette = UI.new("Frame", {
+		Visible = false,
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.fromRGB(255, 30, 30),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ZIndex = 0,
+	}, gui)
+	local function flash()
+		vignette.Visible = true
+		vignette.BackgroundTransparency = 0.8
+		local tween = TweenService:Create(vignette, TweenInfo.new(0.5), { BackgroundTransparency = 1 })
+		tween:Play()
+		tween.Completed:Once(function()
+			vignette.Visible = false
+		end)
+	end
+	local function watchCharacter(character: Model)
+		local humanoid = character:WaitForChild("Humanoid") :: Humanoid
+		local last = humanoid.Health
+		humanoid.HealthChanged:Connect(function(health)
+			if health < last - 0.01 then
+				flash()
+			end
+			last = health
+		end)
+	end
+	player.CharacterAdded:Connect(watchCharacter)
+	if player.Character then
+		task.spawn(watchCharacter, player.Character)
+	end
+
+	-- "LEVEL UP!" banner.
+	local banner = UI.text(gui, {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.3),
+		Size = UDim2.fromOffset(420, 70),
+		Font = Enum.Font.GothamBlack,
+		TextSize = 48,
+		TextColor3 = UI.Colors.Gold,
+		TextXAlignment = Enum.TextXAlignment.Center,
+		TextStrokeTransparency = 0.3,
+		TextTransparency = 1,
+		Text = "LEVEL UP!",
+	})
+	banner.TextStrokeTransparency = 1
+	local function showBanner(level: number)
+		banner.Text = `LEVEL UP!  {level}`
+		banner.TextTransparency = 0
+		banner.TextStrokeTransparency = 0.3
+		TweenService:Create(
+			banner,
+			TweenInfo.new(1.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, 0.6),
+			{ TextTransparency = 1, TextStrokeTransparency = 1 }
+		):Play()
+	end
+
+	local lastLevel: number? = nil
+	local lastCoins: number? = nil
+
 	local function refreshZone()
 		local snapshot = State.Data
 		local zone = GameData.Zones[player:GetAttribute("ZoneId") :: number]
@@ -141,6 +218,19 @@ function Hud.Init()
 		defenseLabel.Text = `Hazard resistance: {s.Defense}%`
 		refreshZone()
 		updatePortals(s.Level)
+
+		if lastLevel and s.Level > lastLevel then
+			Sounds.play("LevelUp", 0.6)
+			showBanner(s.Level)
+		end
+		if lastCoins and s.Coins > lastCoins then
+			Sounds.play("Ping", 0.45, 1.3)
+		end
+		lastLevel = s.Level
+		lastCoins = s.Coins
+
+		dailyButton.Text = if s.DailyReady then "Daily  !" else "Daily"
+		dailyButton.BackgroundColor3 = if s.DailyReady then Color3.fromRGB(240, 170, 40) else UI.Colors.Button
 	end
 
 	State.Changed:Connect(refresh)
