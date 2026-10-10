@@ -115,6 +115,7 @@ local function buildHub()
 	addWalls(Vector3.zero, Config.HubSize, "HubWall")
 
 	make("SpawnLocation", {
+		Name = "HubSpawn",
 		Anchored = true,
 		Size = Vector3.new(10, 1, 10),
 		Position = Vector3.new(0, 0.5, 25),
@@ -143,10 +144,12 @@ end
 -- Portals ---------------------------------------------------------------------------------------------
 
 local function buildPortalGui(portal: Part, title: string, subtitle: string, color: Color3): TextLabel
+	-- Sized in studs (scale) so neighbouring portals' labels never overlap.
 	local gui = make("BillboardGui", {
-		Size = UDim2.fromOffset(260, 90),
+		Size = UDim2.fromScale(18, 7),
 		StudsOffset = Vector3.new(0, 11, 0),
 		AlwaysOnTop = true,
+		MaxDistance = 150,
 	}, portal)
 	make("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder }, gui)
 	label(gui, title, Color3.new(1, 1, 1), UDim2.new(1, 0, 0.4, 0), 1)
@@ -215,6 +218,7 @@ local function buildReturnPortal(zone: Zone)
 		Size = UDim2.fromOffset(240, 50),
 		StudsOffset = Vector3.new(0, 10, 0),
 		AlwaysOnTop = true,
+		MaxDistance = 120,
 	}, portal)
 	label(gui, "Return to Hub", Color3.new(1, 1, 1), UDim2.fromScale(1, 1))
 
@@ -369,6 +373,17 @@ function World.ZoneAt(position: Vector3): Zone?
 end
 
 function World.Build()
+	-- Studio's Baseplate template would z-fight with our floors and has its own spawn pad.
+	local template = workspace:FindFirstChild("Baseplate")
+	if template then
+		template:Destroy()
+	end
+	for _, child in workspace:GetChildren() do
+		if child:IsA("SpawnLocation") then
+			child:Destroy()
+		end
+	end
+
 	World.NodesFolder.Parent = workspace
 	buildHub()
 	for _, zone in GameData.Zones do
