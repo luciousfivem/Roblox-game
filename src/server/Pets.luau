@@ -96,15 +96,12 @@ local function buildModel(pet: GameData.Pet): (Model, { PetPart })
 		part.BottomSurface = Enum.SurfaceType.Smooth
 		part.Parent = model
 		local scaledHinge = if hinge then CFrame.new(hinge.Position * scale) * hinge.Rotation else nil
-		table.insert(
-			parts,
-			{
-				Part = part,
-				Rel = CFrame.new(rel.Position * scale) * rel.Rotation,
-				Hinge = scaledHinge,
-				Side = side or 0,
-			}
-		)
+		table.insert(parts, {
+			Part = part,
+			Rel = CFrame.new(rel.Position * scale) * rel.Rotation,
+			Hinge = scaledHinge,
+			Side = side or 0,
+		})
 		return part
 	end
 

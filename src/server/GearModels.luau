@@ -203,7 +203,7 @@ local function addGuard(tool: Tool, handle: Part, spec: WeaponSpec, z: number, m
 		end
 	elseif kind == "Cup" then
 		attach(
-			toolPart(tool, "GuardCup", Vector3.new(0.6, width, width), metal, Enum.Material.Metal, Enum.PartType.Ball),
+			toolPart(tool, "GuardCup", Vector3.one * (width * 0.55), metal, Enum.Material.Metal, Enum.PartType.Ball),
 			CFrame.new(0, 0, z + 0.2)
 		)
 	end
@@ -447,14 +447,8 @@ function GearModels.ApplyArmor(character: Model, recipe: GameData.Recipe?)
 	-- Shoulder pauldrons.
 	for _, arm in { leftArm, rightArm } do
 		if arm then
-			local pauldron = armorPart(
-				model,
-				"Pauldron",
-				Vector3.new(arm.Size.X + 0.55, 0.85, arm.Size.Z + 0.55),
-				plate,
-				material,
-				Enum.PartType.Ball
-			)
+			local pauldron =
+				armorPart(model, "Pauldron", Vector3.new(arm.Size.X + 0.45, 0.6, arm.Size.Z + 0.45), plate, material)
 			attachTo(arm, pauldron, CFrame.new(0, arm.Size.Y / 2 - 0.1, 0))
 			if tier >= 40 then
 				local spike = armorPart(model, "PauldronSpike", Vector3.new(0.2, 0.55, 0.2), trim, trimMaterial)
@@ -468,12 +462,14 @@ function GearModels.ApplyArmor(character: Model, recipe: GameData.Recipe?)
 		local helmet = armorPart(
 			model,
 			"Helmet",
-			Vector3.new(head.Size.X + 0.35, head.Size.Y * 0.8, head.Size.Z + 0.35),
+			Vector3.new(head.Size.X + 0.3, head.Size.Y * 0.55, head.Size.Z + 0.3),
 			plate,
-			material,
-			Enum.PartType.Ball
+			material
 		)
-		attachTo(head, helmet, CFrame.new(0, head.Size.Y * 0.18, 0))
+		attachTo(head, helmet, CFrame.new(0, head.Size.Y * 0.25, 0))
+		local cap =
+			armorPart(model, "HelmetCap", Vector3.new(head.Size.X * 0.85, 0.3, head.Size.Z + 0.2), plate, material)
+		attachTo(head, cap, CFrame.new(0, head.Size.Y * 0.6, 0))
 		local visor = armorPart(model, "Visor", Vector3.new(head.Size.X * 0.8, 0.14, 0.12), trim, trimMaterial)
 		attachTo(head, visor, CFrame.new(0, head.Size.Y * 0.05, -(head.Size.Z / 2 + 0.2)))
 		if tier >= 52 then

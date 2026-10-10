@@ -32,6 +32,7 @@ function Mining.HitNode(player: Player, profile: GameData.Profile, node: BasePar
 	local ore = GameData.Ores[node:GetAttribute("OreId") :: string]
 	local zone = GameData.Zones[node:GetAttribute("ZoneId") :: number]
 	local boss = node:GetAttribute("Boss") == true
+	local respawns = node:GetAttribute("NoRespawn") ~= true
 	node:Destroy()
 
 	local base = if boss then Config.BossYield else 1
@@ -43,9 +44,11 @@ function Mining.HitNode(player: Player, profile: GameData.Profile, node: BasePar
 	Notify.toast(player, `+{yield} {ore.Name}`, ore.Color)
 	Data.Push(player)
 
-	task.delay(Config.NodeRespawnTime, function()
-		World.SpawnNode(zone)
-	end)
+	if respawns then
+		task.delay(Config.NodeRespawnTime, function()
+			World.SpawnNode(zone)
+		end)
+	end
 	return true
 end
 

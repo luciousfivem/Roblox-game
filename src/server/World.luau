@@ -12,6 +12,8 @@ local Notify = require(script.Parent.Notify)
 
 type Zone = GameData.Zone
 
+export type SpawnOptions = { OreId: string?, Boss: boolean?, Position: Vector3?, NoRespawn: boolean? }
+
 local World = {}
 
 World.NodesFolder = Instance.new("Folder")
@@ -73,6 +75,11 @@ local function teleport(player: Player, position: Vector3)
 	end
 end
 
+-- Moves a player to a zone (nil = hub) with no checks.
+function World.TeleportTo(player: Player, zone: Zone?)
+	teleport(player, if zone then zoneSpawn(zone) else World.HubSpawn)
+end
+
 -- Moves a player to a zone (nil = hub) if their level allows it.
 function World.TryEnter(player: Player, zone: Zone?): boolean
 	local profile = Data.Get(player)
@@ -83,7 +90,7 @@ function World.TryEnter(player: Player, zone: Zone?): boolean
 		Notify.toast(player, `{zone.Name} requires level {zone.RequiredLevel}`, Color3.fromRGB(255, 110, 110))
 		return false
 	end
-	teleport(player, if zone then zoneSpawn(zone) else World.HubSpawn)
+	World.TeleportTo(player, zone)
 	return true
 end
 
@@ -282,29 +289,34 @@ function World.UpdateBar(node: BasePart)
 	end
 end
 
-function World.SpawnNode(zone: Zone)
+-- Spawns an ore node in `zone`. Options let admin tools pick the ore, force a rich node, choose the
+-- exact ground position, or stop the node from respawning.
+function World.SpawnNode(zone: Zone, options: SpawnOptions?)
+	local opts: SpawnOptions = options or {}
 	local center = zoneCenter(zone)
-	local ore = pickOre(zone)
-	local boss = math.random() < Config.BossChance
+	local ore = if opts.OreId and GameData.Ores[opts.OreId] then GameData.Ores[opts.OreId] else pickOre(zone)
+	local boss = if opts.Boss ~= nil then opts.Boss else math.random() < Config.BossChance
 
 	local tier = table.find(GameData.OreOrder, ore) or 1
 	local size = (3.2 + tier * 0.4) * (if boss then 1.7 else 1)
 	local health = ore.Health * (if boss then Config.BossHealthMult else 1)
 
-	-- Find a spot that isn't on top of another node.
-	local position = center
-	for _ = 1, 12 do
-		local candidate = center + Vector3.new(math.random(-70, 70), 0, math.random(-72, 48))
-		local free = true
-		for _, other in World.NodesFolder:GetChildren() do
-			if other:IsA("BasePart") and (other.Position - candidate).Magnitude < size + 6 then
-				free = false
+	-- Find a spot that isn't on top of another node (unless a position was requested).
+	local position = opts.Position or center
+	if not opts.Position then
+		for _ = 1, 12 do
+			local candidate = center + Vector3.new(math.random(-70, 70), 0, math.random(-72, 48))
+			local free = true
+			for _, other in World.NodesFolder:GetChildren() do
+				if other:IsA("BasePart") and (other.Position - candidate).Magnitude < size + 6 then
+					free = false
+					break
+				end
+			end
+			position = candidate
+			if free then
 				break
 			end
-		end
-		position = candidate
-		if free then
-			break
 		end
 	end
 
@@ -322,6 +334,7 @@ function World.SpawnNode(zone: Zone)
 	node:SetAttribute("Health", health)
 	node:SetAttribute("MaxHealth", health)
 	node:SetAttribute("Boss", boss)
+	node:SetAttribute("NoRespawn", opts.NoRespawn == true)
 
 	local gui = make("BillboardGui", {
 		Size = UDim2.fromOffset(150, 40),

@@ -126,6 +126,16 @@ function Hud.Init()
 	end)
 	dailyButton.Position = UDim2.fromOffset(128, 248)
 	dailyButton.Size = UDim2.fromOffset(104, 34)
+	-- Only shown to admins; the server re-checks every command regardless.
+	local adminButton = UI.button(gui, "Admin [F2]", Color3.fromRGB(200, 70, 70), true, function()
+		Panels.Toggle("Admin")
+	end)
+	adminButton.Position = UDim2.fromOffset(244, 248)
+	adminButton.Size = UDim2.fromOffset(104, 34)
+	adminButton.Visible = player:GetAttribute("IsAdmin") == true
+	player:GetAttributeChangedSignal("IsAdmin"):Connect(function()
+		adminButton.Visible = player:GetAttribute("IsAdmin") == true
+	end)
 
 	-- Red flash when the character takes damage (hazard zones).
 	local vignette = UI.new("Frame", {

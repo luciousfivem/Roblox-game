@@ -1,5 +1,6 @@
 --!strict
--- Tracks which zone each player is in and applies environmental damage, reduced by armor.
+-- Tracks which zone each player is in, applies environmental damage (reduced by armor), and
+-- regenerates health like Roblox's default Health script (characters we spawn don't get that one).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -19,6 +20,10 @@ function Hazards.Init()
 				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 				local profile = Data.Get(player)
 				if root and humanoid and profile then
+					if humanoid.Health > 0 and humanoid.Health < humanoid.MaxHealth then
+						humanoid.Health = math.min(humanoid.MaxHealth, humanoid.Health + humanoid.MaxHealth * 0.01)
+					end
+
 					local zone = World.ZoneAt(root.Position)
 					player:SetAttribute("ZoneId", if zone then zone.Id else 0)
 					if zone and zone.Hazard > 0 and humanoid.Health > 0 then

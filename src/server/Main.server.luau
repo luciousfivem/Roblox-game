@@ -3,9 +3,14 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+-- We spawn characters ourselves (R6), so turn off the engine's automatic loading straight away.
+Players.CharacterAutoLoads = false
+
 -- Must come first: creates the remotes clients wait on.
 require(ReplicatedStorage.Shared.Remotes)
 
+local Admin = require(script.Parent.Admin)
+local Characters = require(script.Parent.Characters)
 local Data = require(script.Parent.Data)
 local Economy = require(script.Parent.Economy)
 local Gear = require(script.Parent.Gear)
@@ -22,6 +27,8 @@ Economy.Init()
 Pets.Init()
 Progression.Init()
 Hazards.Init()
+Admin.Init()
+Characters.Init()
 
 -- Re-apply gear on every respawn, and once data finishes loading.
 local function watchCharacters(player: Player)

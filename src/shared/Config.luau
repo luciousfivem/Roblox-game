@@ -13,6 +13,10 @@ return {
 	DataStoreName = "ForgeMinersV1",
 	TeleportCooldown = 3, -- seconds between map teleports
 
+	-- Roblox user ids allowed to use the admin menu (the place owner and anyone in Studio always can).
+	-- Find an id in the URL of a profile: roblox.com/users/<id>/profile
+	Admins = {} :: { number },
+
 	-- "Rich" boss nodes: rare, tougher, and pay out much more.
 	BossChance = 0.04,
 	BossHealthMult = 6,

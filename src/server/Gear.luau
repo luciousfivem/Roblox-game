@@ -37,7 +37,7 @@ function Gear.apply(player: Player)
 
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
-		humanoid.WalkSpeed = GameData.walkSpeed(profile)
+		humanoid.WalkSpeed = (player:GetAttribute("AdminSpeed") :: number?) or GameData.walkSpeed(profile)
 	end
 
 	clearForgedTools(player)
@@ -52,6 +52,19 @@ function Gear.apply(player: Player)
 	end
 
 	GearModels.ApplyArmor(character, GameData.RecipesById[profile.Armor])
+
+	-- Admin god mode survives respawns because Gear.apply runs on every new character.
+	local god = character:FindFirstChild("AdminGod")
+	if player:GetAttribute("God") == true then
+		if not god then
+			local forceField = Instance.new("ForceField")
+			forceField.Name = "AdminGod"
+			forceField.Visible = false
+			forceField.Parent = character
+		end
+	elseif god then
+		god:Destroy()
+	end
 end
 
 return Gear

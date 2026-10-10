@@ -41,6 +41,15 @@ Hazard damage is reduced by your armor's resistance, so deep zones need forged a
   (spin/bob/pulse/orbit), shake and burst into chunks when hit; weapons have swing trails. Drop your own
   meshes into `src/models/` (see `src/models/README.txt`) to replace any of them.
 
+- **R6 characters** – players spawn as R6 rigs with classic R6 animations (idle, walk, jump, fall, climb,
+  sit, tool hold and tool slash). Roblox only offers R6 as a place-wide setting, so `Characters.luau`
+  builds the rig and attaches `src/templates/Animate.client.luau`. If the rig can't be built it falls back
+  to the engine's default character.
+- **Admin menu** – press **F2** (or the red Admin button). Give coins/XP/levels/ore/gear/pets, max
+  upgrades, spawn ore or Rich nodes, heal, god mode, walk speed, and teleport anywhere. Admins are Studio
+  sessions, the place owner, and user ids listed in `Config.Admins`. Every command is validated on the
+  server, so only admins can use it even if a client fires the remote directly.
+
 ## Setup
 
 1. `rokit install` (Rojo, Selene, StyLua).
@@ -56,10 +65,11 @@ src/shared/Config.luau     world layout and timing constants
 src/shared/Remotes.luau    RemoteEvent / RemoteFunction registry
 src/server/                Data (save/load, XP), World (hub, zones, nodes), NodeModels (ore looks), Mining,
                            Economy, Gear + GearModels (weapons/armor), Pets, Progression (rebirth/daily/teleport),
-                           Hazards, Main
+                           Hazards, Characters (R6 spawning), Admin, Main
 src/client/                State, Hud, Panels (all windows), Mining (input), Effects (ore animation, hit/break
                            feedback), Sounds, Toasts, Main
 src/models/                optional custom meshes that override the procedural models
+src/templates/             scripts cloned at runtime (the R6 Animate script)
 ```
 
 The server is authoritative: mining range, swing rate, backpack space, recipe costs, upgrade costs

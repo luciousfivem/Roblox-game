@@ -22,6 +22,11 @@
           "$path": "src/client"
         }
       }
+    },
+    "ServerStorage": {
+      "Templates": {
+        "$path": "src/templates"
+      }
     }
   }
 }

@@ -608,6 +608,309 @@ local function renderDaily(s: Snapshot)
 	body.CanvasPosition = scroll
 end
 
+-- Admin ---------------------------------------------------------------------------------------------------------
+
+local adminTab: "Give" | "Spawn" | "Player" = "Give"
+local adminAmount = "1000"
+local adminConfirmReset = false
+
+local function adminCommand(command: string, args: { [string]: any }?)
+	Remotes.Event("Admin"):FireServer(command, args or {})
+end
+
+local function adminNumber(): number
+	return tonumber(adminAmount) or 0
+end
+
+type AdminButton = { Text: string, Color: Color3, Fn: () -> () }
+
+local function adminRow(body: Instance, order: number, title: string, color: Color3?, buttons: { AdminButton })
+	local row = newRow(body, 52, order)
+	rowText(row, 0, 52, {
+		Size = UDim2.new(1, -(#buttons * 100 + 20), 1, 0),
+		Font = Enum.Font.GothamBold,
+		TextSize = 16,
+		TextColor3 = color or UI.Colors.Text,
+		Text = title,
+	})
+	for index, entry in buttons do
+		rightButton(row, entry.Text, entry.Color, true, entry.Fn, index - 1, 92)
+	end
+end
+
+local function adminHeading(body: Instance, order: number, text: string)
+	UI.text(body, {
+		LayoutOrder = order,
+		Size = UDim2.new(1, -8, 0, 26),
+		Font = Enum.Font.GothamBold,
+		TextSize = 15,
+		TextColor3 = UI.Colors.Gold,
+		Text = text,
+	})
+end
+
+local function renderAdmin()
+	local window = windows.Admin
+	clear(window.Tabs)
+	for _, tab in { "Give", "Spawn", "Player" } do
+		local button = UI.button(window.Tabs, tab, UI.Colors.Button, adminTab ~= tab, function()
+			adminTab = tab :: any
+			Panels.Refresh(true)
+		end)
+		button.Size = UDim2.fromOffset(90, 34)
+	end
+	local box = UI.new("TextBox", {
+		Size = UDim2.fromOffset(150, 34),
+		BackgroundColor3 = UI.Colors.Row,
+		BorderSizePixel = 0,
+		TextColor3 = UI.Colors.Text,
+		PlaceholderText = "Amount",
+		PlaceholderColor3 = UI.Colors.Muted,
+		Font = Enum.Font.GothamBold,
+		TextSize = 16,
+		ClearTextOnFocus = false,
+		Text = adminAmount,
+	}, window.Tabs)
+	UI.corner(box, 8)
+	box:GetPropertyChangedSignal("Text"):Connect(function()
+		adminAmount = box.Text
+	end)
+
+	local body = window.Body
+	local scroll = body.CanvasPosition
+	clear(body)
+	local order = 0
+	local function nextOrder(): number
+		order += 1
+		return order
+	end
+
+	local green = UI.Colors.Good
+	local blue = UI.Colors.Button
+	local red = UI.Colors.Bad
+
+	if adminTab == "Give" then
+		adminHeading(body, nextOrder(), "Resources (uses the Amount box)")
+		adminRow(body, nextOrder(), "Coins", nil, {
+			{
+				Text = "+ Give",
+				Color = green,
+				Fn = function()
+					adminCommand("coins", { amount = adminNumber() })
+				end,
+			},
+			{
+				Text = "- Take",
+				Color = red,
+				Fn = function()
+					adminCommand("coins", { amount = -adminNumber() })
+				end,
+			},
+		})
+		adminRow(body, nextOrder(), "XP", nil, {
+			{
+				Text = "+ Give",
+				Color = green,
+				Fn = function()
+					adminCommand("xp", { amount = adminNumber() })
+				end,
+			},
+		})
+		adminRow(body, nextOrder(), "Level", nil, {
+			{
+				Text = "Set",
+				Color = blue,
+				Fn = function()
+					adminCommand("level", { amount = adminNumber() })
+				end,
+			},
+		})
+		adminRow(body, nextOrder(), "Rebirths", nil, {
+			{
+				Text = "Set",
+				Color = blue,
+				Fn = function()
+					adminCommand("rebirths", { amount = adminNumber() })
+				end,
+			},
+		})
+
+		adminHeading(body, nextOrder(), "Ore into your backpack")
+		for _, ore in GameData.OreOrder do
+			adminRow(body, nextOrder(), ore.Name, UI.readable(ore.Color), {
+				{
+					Text = "+ Give",
+					Color = green,
+					Fn = function()
+						adminCommand("ore", { id = ore.Id, amount = adminNumber() })
+					end,
+				},
+			})
+		end
+
+		adminHeading(body, nextOrder(), "Gear (free, auto-equipped)")
+		for _, recipe in GameData.Recipes do
+			adminRow(body, nextOrder(), `{recipe.Name} ({recipe.Kind})`, UI.readable(recipe.Color), {
+				{
+					Text = "Grant",
+					Color = green,
+					Fn = function()
+						adminCommand("gear", { id = recipe.Id })
+					end,
+				},
+			})
+		end
+
+		adminHeading(body, nextOrder(), "Pets (uses the Amount box, 1-99)")
+		for _, pet in GameData.Pets do
+			adminRow(body, nextOrder(), `{pet.Name} ({pet.Rarity})`, GameData.RarityColors[pet.Rarity], {
+				{
+					Text = "Grant",
+					Color = green,
+					Fn = function()
+						adminCommand("pet", { id = pet.Id, amount = math.max(1, adminNumber()) })
+					end,
+				},
+			})
+		end
+
+		adminHeading(body, nextOrder(), "Maintenance")
+		adminRow(body, nextOrder(), "Max all upgrades", nil, {
+			{
+				Text = "Do it",
+				Color = green,
+				Fn = function()
+					adminCommand("maxupgrades")
+				end,
+			},
+		})
+		adminRow(body, nextOrder(), "Empty backpack", nil, {
+			{
+				Text = "Do it",
+				Color = blue,
+				Fn = function()
+					adminCommand("clearbag")
+				end,
+			},
+		})
+		adminRow(body, nextOrder(), "Reset ALL my data", red, {
+			{
+				Text = if adminConfirmReset then "Confirm!" else "Reset",
+				Color = red,
+				Fn = function()
+					if adminConfirmReset then
+						adminConfirmReset = false
+						adminCommand("reset")
+					else
+						adminConfirmReset = true
+						task.delay(4, function()
+							if adminConfirmReset then
+								adminConfirmReset = false
+								Panels.Refresh(true)
+							end
+						end)
+					end
+					Panels.Refresh(true)
+				end,
+			},
+		})
+	elseif adminTab == "Spawn" then
+		infoRow(
+			body,
+			nextOrder(),
+			44,
+			"Spawns an ore node 12 studs in front of you. Spawned nodes do not respawn.",
+			UI.Colors.Muted,
+			14
+		)
+		for _, ore in GameData.OreOrder do
+			adminRow(body, nextOrder(), ore.Name, UI.readable(ore.Color), {
+				{
+					Text = "Node",
+					Color = green,
+					Fn = function()
+						adminCommand("spawnnode", { oreId = ore.Id, boss = false })
+					end,
+				},
+				{
+					Text = "Rich",
+					Color = Color3.fromRGB(240, 170, 40),
+					Fn = function()
+						adminCommand("spawnnode", { oreId = ore.Id, boss = true })
+					end,
+				},
+			})
+		end
+	else
+		adminHeading(body, nextOrder(), "Character")
+		adminRow(body, nextOrder(), "Heal to full", nil, {
+			{
+				Text = "Heal",
+				Color = green,
+				Fn = function()
+					adminCommand("heal")
+				end,
+			},
+		})
+		adminRow(body, nextOrder(), "God mode (no damage)", nil, {
+			{
+				Text = "Toggle",
+				Color = blue,
+				Fn = function()
+					adminCommand("god")
+				end,
+			},
+		})
+		adminRow(body, nextOrder(), "Walk speed (Amount box)", nil, {
+			{
+				Text = "Set",
+				Color = green,
+				Fn = function()
+					adminCommand("speed", { amount = adminNumber() })
+				end,
+			},
+			{
+				Text = "Reset",
+				Color = blue,
+				Fn = function()
+					adminCommand("speed", { amount = 0 })
+				end,
+			},
+		})
+		adminRow(body, nextOrder(), "Unlock every zone (level 60)", nil, {
+			{
+				Text = "Do it",
+				Color = green,
+				Fn = function()
+					adminCommand("level", { amount = GameData.MaxLevel })
+				end,
+			},
+		})
+		adminHeading(body, nextOrder(), "Teleport (ignores level locks)")
+		adminRow(body, nextOrder(), "Hub", nil, {
+			{
+				Text = "Go",
+				Color = blue,
+				Fn = function()
+					adminCommand("tp", { zoneId = 0 })
+				end,
+			},
+		})
+		for _, zone in GameData.Zones do
+			adminRow(body, nextOrder(), zone.Name, zone.DifficultyColor, {
+				{
+					Text = "Go",
+					Color = blue,
+					Fn = function()
+						adminCommand("tp", { zoneId = zone.Id })
+					end,
+				},
+			})
+		end
+	end
+	body.CanvasPosition = scroll
+end
+
 local renderers: { [string]: (Snapshot) -> () } = {
 	Sell = renderSell,
 	Forge = renderForge,
@@ -616,12 +919,18 @@ local renderers: { [string]: (Snapshot) -> () } = {
 	Rebirth = renderRebirth,
 	Map = renderMap,
 	Daily = renderDaily,
+	Admin = renderAdmin,
 }
 
 -- Public --------------------------------------------------------------------------------------------------------
 
-function Panels.Refresh()
+-- Re-renders the open window. The admin window only re-renders when asked (`force`), so a state
+-- update never rebuilds its text box while someone is typing in it.
+function Panels.Refresh(force: boolean?)
 	if openPanel and State.Data then
+		if openPanel == "Admin" and not force then
+			return
+		end
 		renderers[openPanel](State.Data)
 	end
 end
@@ -668,8 +977,11 @@ function Panels.Init()
 	windows.Rebirth = createWindow("Rebirth Altar", false)
 	windows.Map = createWindow("World Map", false)
 	windows.Daily = createWindow("Daily Reward", false)
+	windows.Admin = createWindow("Admin", true)
 
-	State.Changed:Connect(Panels.Refresh)
+	State.Changed:Connect(function()
+		Panels.Refresh()
+	end)
 
 	ProximityPromptService.PromptTriggered:Connect(function(prompt: ProximityPrompt, who: Player)
 		local name = prompt:GetAttribute("Panel")
@@ -680,8 +992,13 @@ function Panels.Init()
 	end)
 
 	UserInputService.InputBegan:Connect(function(input, processed)
-		if not processed and input.KeyCode == Enum.KeyCode.M then
+		if processed then
+			return
+		end
+		if input.KeyCode == Enum.KeyCode.M then
 			Panels.Toggle("Map")
+		elseif input.KeyCode == Enum.KeyCode.F2 and player:GetAttribute("IsAdmin") == true then
+			Panels.Toggle("Admin")
 		end
 	end)
 
